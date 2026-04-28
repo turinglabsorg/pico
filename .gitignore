@@ -1,0 +1,34 @@
+# Build artifacts
+/target
+/Pico.app
+pico-sessions/
+
+# Whisper / Kokoro models — too big for git, downloaded by scripts
+/models/*.bin
+/models/*.gguf
+/models/*.onnx
+/models/kokoro/
+
+# Test fixtures: large audio + per-run snapshots
+/tests/fixtures/*.wav
+/tests/fixtures/*.mp3
+/tests/fixtures/*.opus
+
+# Personal example clips, never check these in
+/examples/
+
+# Pending insta snapshots — only the accepted .snap files belong in git
+*.snap.new
+
+# Secrets — never check these in
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+.claude/
