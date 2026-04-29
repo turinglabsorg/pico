@@ -194,6 +194,29 @@ impl eframe::App for PicoApp {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.label(format!("{} chunks", s.chunks_processed));
                     ui.separator();
+                    if let Some(rtf) = s.avg_rtf() {
+                        let (color, glyph) = if rtf < 0.5 {
+                            (egui::Color32::from_rgb(50, 200, 80), "✓")
+                        } else if rtf < 0.85 {
+                            (egui::Color32::from_rgb(200, 200, 80), "·")
+                        } else if rtf < 1.0 {
+                            (egui::Color32::from_rgb(240, 180, 60), "⚠")
+                        } else {
+                            (egui::Color32::from_rgb(220, 60, 60), "✗")
+                        };
+                        ui.colored_label(
+                            color,
+                            egui::RichText::new(format!("{} RTF {:.2}", glyph, rtf)).strong(),
+                        )
+                        .on_hover_text(
+                            "End-to-end processing time over audio duration.\n\
+                             < 0.5  comfortable headroom\n\
+                             0.5-0.85  ok\n\
+                             0.85-1.0  close to the edge\n\
+                             ≥ 1.0  slower than real time — utterances will queue up and eventually drop",
+                        );
+                        ui.separator();
+                    }
                     ui.label(format!("mt: {}", s.ollama_model));
                 });
             });

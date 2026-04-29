@@ -185,6 +185,10 @@ pub struct SharedState {
 
     pub chunks_processed: u64,
     pub last_activity: Option<Instant>,
+    /// Rolling window of recent end-to-end RTFs (processing time / audio
+    /// duration) per utterance. ≥1.0 means the pipeline is slower than
+    /// real time — utterances queue up, latency grows, eventually drops.
+    pub recent_rtfs: VecDeque<f64>,
 
     pub history: VecDeque<HistoryEntry>,
     /// Ring buffer of debug log lines, newest first. Capped at 200 entries.
@@ -276,6 +280,25 @@ impl SharedState {
         }
     }
 
+    /// Push a new RTF observation; keeps the most recent 12 entries. Called
+    /// once per utterance from the worker thread.
+    pub fn record_rtf(&mut self, rtf: f64) {
+        self.recent_rtfs.push_back(rtf);
+        while self.recent_rtfs.len() > 12 {
+            self.recent_rtfs.pop_front();
+        }
+    }
+
+    /// Mean RTF across the rolling window, or None when no utterances
+    /// have been processed yet.
+    pub fn avg_rtf(&self) -> Option<f64> {
+        if self.recent_rtfs.is_empty() {
+            return None;
+        }
+        let sum: f64 = self.recent_rtfs.iter().sum();
+        Some(sum / self.recent_rtfs.len() as f64)
+    }
+
     /// Wipe everything the GUI shows: current source/translation, history,
     /// debug log, and timing counters. The pipeline keeps running.
     pub fn clear_all(&mut self) {
@@ -296,6 +319,7 @@ impl SharedState {
         self.tts_ms_es = 0;
         self.tts_ms_it = 0;
         self.chunks_processed = 0;
+        self.recent_rtfs.clear();
     }
 
     pub fn push_history(&mut self) {

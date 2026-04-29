@@ -718,6 +718,12 @@ fn process_utterance_inner(
     let rt = &*ctx.rt;
     let source = controls.get_source();
 
+    // Wall-clock start of the whole utterance pipeline so we can compute
+    // an end-to-end RTF (processing-time / audio-duration) at the end. RTF
+    // ≥ 1.0 means the machine is falling behind real time.
+    let pipeline_t0 = Instant::now();
+    let audio_duration_s = chunk.len() as f64 / 16_000.0; // VAD always emits 16 kHz mono
+
     // Speaker gender for TTS voice selection. The GUI can override (Male /
     // Female); when set to Auto, we estimate F0 on this chunk and feed a
     // running majority tracker so the voice stays stable across utterances
@@ -915,8 +921,20 @@ fn process_utterance_inner(
     }
     info!("[tts total {}ms (parallel)]", tts_t0.elapsed().as_millis());
 
+    let pipeline_ms = pipeline_t0.elapsed().as_millis() as f64;
+    let rtf = if audio_duration_s > 0.0 {
+        (pipeline_ms / 1000.0) / audio_duration_s
+    } else {
+        0.0
+    };
     if let Some(st) = state {
-        st.lock().unwrap().chunks_processed += 1;
+        let mut s = st.lock().unwrap();
+        s.chunks_processed += 1;
+        s.record_rtf(rtf);
+        s.log(format!(
+            "[rtf {:.2}] audio={:.1}s pipeline={:.2}s",
+            rtf, audio_duration_s, pipeline_ms / 1000.0
+        ));
     }
 
     Ok(())
